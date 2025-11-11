@@ -5,13 +5,13 @@ import com.example.reminder.dto.EventResponse;
 import com.example.reminder.dto.PageResponse;
 import com.example.reminder.model.Event;
 import com.example.reminder.exception.ResourceNotFoundException;
+import com.example.reminder.security.AuthContext;
 import com.example.reminder.service.EventService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,9 +21,11 @@ import java.util.List;
 @RequestMapping("/api/events")// Allow all origins (for Angular frontend)
 public class EventController {
     private final EventService service;
+    private final AuthContext authContext;
 
-    public EventController(EventService service) {
+    public EventController(EventService service,  AuthContext authContext) {
         this.service = service;
+        this.authContext =  authContext;
     }
 
     /*
@@ -45,17 +47,22 @@ public class EventController {
             dateFilter = LocalDate.parse(afterDate);
         }
 
-        var pageResult= service.getPagedEvents(page,size,sortBy,direction,dateFilter);
+        var pageResult= service.getPagedEventsForUser(authContext.getCurrentUser(),page,size,sortBy,direction,dateFilter);
+
+        List<EventResponse> eventResponses = pageResult.getContent().stream()
+                        .map(EventResponse::fromEntity)
+                                .toList();
 
         log.info("Get /api/events/paged -> page={} , size={} , sortBy={} , direction={} , afterDate={} " ,
                 page , size , sortBy , direction , afterDate
                 );
 
-        PageResponse<Event> responseData = new PageResponse<>();
-        responseData.setContent(pageResult.getContent());
+        PageResponse<EventResponse> responseData = new PageResponse<>();
+        responseData.setContent(eventResponses);
         responseData.setCurrentPage( pageResult.getNumber());
         responseData.setTotalItems( pageResult.getTotalElements());
         responseData.setTotalPages( pageResult.getTotalPages());
+        responseData.setSize(pageResult.getSize());
 
         return  ResponseEntity.ok(new ApiResponse<>("success", "Paged Events retrieved" , responseData));
     }
@@ -67,7 +74,7 @@ public class EventController {
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<EventResponse>>> getAll() {
-        List<Event> events = service.getAllEventsForCurrentUser();
+        List<Event> events = service.getAllEventsForCurrentUser(authContext.getCurrentUser());
         log.info("Get /api/events -> {} items", events.size());
         String message = (events.isEmpty()) ? "No Events found for current user." : "Events retrieved successfully.";
         List<EventResponse> eventResponseList = new ArrayList<>();
@@ -87,7 +94,7 @@ public class EventController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<EventResponse>> getById(@PathVariable Long id) {
-        Event event = service.getEventById(id);
+        Event event = service.getEventById(authContext.getCurrentUser(),id);
         if (event == null) {
             log.warn("Get /api/events/{} -> not found", id);
             throw new ResourceNotFoundException("Event with ID : "+ id +" not found.");
@@ -106,7 +113,7 @@ public class EventController {
      */
     @PostMapping
     public ResponseEntity<ApiResponse<EventResponse>> create(@RequestBody @Valid EventRequest eventRequest) {
-        Event createdEvent = service.createEvent(eventRequest);
+        Event createdEvent = service.createEvent(authContext.getCurrentUser(),eventRequest);
         log.info("Post /api/events -> created id={} , title={}", createdEvent.getId(), createdEvent.getTitle());
         EventResponse eventResponse = EventResponse.fromEntity(createdEvent);
         return ResponseEntity.status(HttpStatus.CREATED).
@@ -122,13 +129,13 @@ public class EventController {
     public ResponseEntity<ApiResponse<EventResponse>> update(@PathVariable Long id ,
                                                              @RequestBody @Valid EventRequest eventRequest) {
 
-        Event existingEvent = service.getEventById(id);
+        Event existingEvent = service.getEventById(authContext.getCurrentUser(),id);
 
         if (existingEvent == null) {
             log.warn("Get /api/events/{} -> not found", id);
             throw new ResourceNotFoundException("Event with ID : "+ id +" not found.");
         }
-        Event updatedEvent = service.updateEvent(id, eventRequest);
+        Event updatedEvent = service.updateEvent(authContext.getCurrentUser(),id, eventRequest);
         log.info("Put /api/events/{} -> updated", id);
         EventResponse updatedEventResponse = EventResponse.fromEntity(updatedEvent);
         return ResponseEntity.ok(new ApiResponse<>("success" , "Event Updated.",updatedEventResponse ));
@@ -141,14 +148,14 @@ public class EventController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<EventResponse>> delete(@PathVariable Long id) {
-        Event existingEvent = service.getEventById(id);
+        Event existingEvent = service.getEventById(authContext.getCurrentUser(),id);
 
         if (existingEvent == null) {
             log.warn("Get /api/events/{} -> not found", id);
             throw new ResourceNotFoundException("Event with ID : "+ id +" not found.");
         }
         EventResponse eventResponse = EventResponse.fromEntity(existingEvent);
-        service.deleteEvent(id);
+        service.deleteEvent(authContext.getCurrentUser(),id);
         log.info("Delete /api/events/{} -> deleted", id);
         return ResponseEntity.ok(new ApiResponse<>("success","Event Deleted.",eventResponse));
     }

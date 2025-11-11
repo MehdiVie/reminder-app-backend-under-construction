@@ -20,4 +20,12 @@ public class AuthContext {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Email not found."+email));
     }
+
+    public boolean isAdmin() {
+        return getCurrentUser().getRolesAsString().contains("ADMIN");
+    }
+
+    public boolean isUser() {
+        return getCurrentUser().getRolesAsString().contains("USER");
+    }
 }

@@ -25,27 +25,59 @@ import java.util.Set;
 public class EventService {
     private final EventRepository repo;
     private final EmailService emailService;
-    private final AuthContext authContext;
+
 
 
     // Allowed sort fields (white list)
     private static final Set<String> ALLOWED_SORTS = Set.of("id", "eventDate", "title", "reminderTime");
 
 
-    public EventService(EventRepository repository, EmailService emailService,
-                        AuthContext authContext) {
+    public EventService(EventRepository repository, EmailService emailService) {
         this.repo = repository;
         this.emailService = emailService;
-        this.authContext = authContext;
+
 
 
     }
 
-    public  Page<Event> getPagedEvents(Integer page, Integer size, String sortBy,
+
+    public  Page<Event> getPagedEventsForUser(User user,Integer page, Integer size, String sortBy,
                                       String direction, LocalDate afterDate) {
         // defaults
         int p = (page == null || page < 0) ? 0 : page;
-        int s = (size == null || size < 0 || size > 100) ? 10 : size;
+        int s = (size == null || size <= 0 || size > 100) ? 10 : size;
+
+        // safe direction
+        Sort.Direction dir;
+        try {
+            dir = (direction == null) ? Sort.Direction.ASC : Sort.Direction.valueOf(direction.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            dir = Sort.Direction.ASC;
+        }
+
+        //safe sortBy
+        String sortProb = (sortBy == null || !ALLOWED_SORTS.contains(sortBy)) ? "id" : sortBy;
+
+        // stable sort
+        Sort sort = Sort.by(new Sort.Order(dir, sortProb) , new Sort.Order(dir , "id"));
+
+        Pageable pageable = PageRequest.of(p,s,sort);
+
+        if (afterDate != null) {
+                return repo.findAllAfterDate(user,afterDate, pageable);
+        }
+
+
+        return repo.findByUser(user,pageable);
+
+
+    }
+
+    public  Page<Event> getPagedEventsForAdmin(Integer page, Integer size, String sortBy,
+                                              String direction, LocalDate afterDate) {
+        // defaults
+        int p = (page == null || page < 0) ? 0 : page;
+        int s = (size == null || size <= 0 || size > 100) ? 10 : size;
 
         // safe direction
         Sort.Direction dir;
@@ -71,10 +103,9 @@ public class EventService {
 
     }
 
-    public Event getEventById(Long id) {
+    public Event getEventById(User user , Long id) {
 
         Event event =  repo.findById(id).orElse(null);
-        User user = authContext.getCurrentUser();
 
         if (event == null) {
             throw new ResourceNotFoundException("Event with ID " + id + " not found.");
@@ -87,22 +118,20 @@ public class EventService {
         return event;
     }
 
-    public List<Event> getAllEventsForCurrentUser() {
+    public List<Event> getAllEventsForCurrentUser(User user) {
 
-        User user = authContext.getCurrentUser();
         log.info("Current authenticated user: {}", user != null ? user.getEmail() : "null");
         return repo.findByUser(user);
 
     }
 
 
-    public Event createEvent(EventRequest eventRequest) {
+    public Event createEvent(User user,EventRequest eventRequest) {
 
         if (eventRequest == null) {
             throw new IllegalArgumentException("Event cannot be null");
         }
 
-        User user = authContext.getCurrentUser();
 
         Event createdEvent = new Event();
         createdEvent.setTitle(eventRequest.getTitle());
@@ -114,9 +143,8 @@ public class EventService {
         return repo.save(createdEvent);
     }
 
-    public Event updateEvent(Long id , EventRequest updatedEvent) {
+    public Event updateEvent(User user,Long id , EventRequest updatedEvent) {
         Event event = repo.findById(id).orElse(null);
-        User user = authContext.getCurrentUser();
 
         if (event == null || !event.getUser().equals(user)) return null;
 
@@ -128,9 +156,9 @@ public class EventService {
         return repo.save(event);
     }
 
-    public void deleteEvent(Long id) {
+    public void deleteEvent(User user,Long id) {
         Event event = repo.findById(id).orElse(null);
-        User user = authContext.getCurrentUser();
+
 
         if (event == null || !event.getUser().equals(user)) {
             throw new SecurityException("Not allowed to delete this event");

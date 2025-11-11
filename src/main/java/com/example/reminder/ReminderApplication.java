@@ -7,8 +7,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 
 @SpringBootApplication
-//@EnableScheduling
-//@EnableAsync // it activates async execution for email
+@EnableScheduling
+@EnableAsync // it activates async execution for email
 public class ReminderApplication {
 
 	public static void main(String[] args) {

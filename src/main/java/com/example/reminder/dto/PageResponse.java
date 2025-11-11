@@ -14,4 +14,5 @@ public class PageResponse<T> {
     private int currentPage;
     private long totalItems;
     private int totalPages;
+    private int size;
 }

@@ -18,9 +18,17 @@ public interface EventRepository extends JpaRepository<Event, Long> {
 
     List<Event> findByUser(User user);
 
+    Page<Event> findByUser(User user, Pageable pageable);
+
+    Page<Event> findAll(Pageable pageable);
+
     // return all Events after specific date
     @Query("SELECT e FROM Event e WHERE e.eventDate >= :date")
     Page<Event> findAllAfterDate(LocalDate date , Pageable pageable);
+
+    // return all Events after specific date
+    @Query("SELECT e FROM Event e WHERE e.user=:user AND e.eventDate >= :date")
+    Page<Event> findAllAfterDate(User user,LocalDate date , Pageable pageable);
 
     @Query("SELECT e FROM Event e WHERE e.reminderSent = false AND e.reminderTime <= :now ")
     List<Event> findPendingReminders(@Param("now") LocalDateTime now);
