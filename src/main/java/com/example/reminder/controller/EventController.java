@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,21 +41,24 @@ public class EventController {
             @RequestParam(defaultValue = "5") Integer size,
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String direction,
-            @RequestParam(required = false) String afterDate) {
+            @RequestParam(required = false) String afterDate,
+            @RequestParam(required = false) String search) {
+
 
         LocalDate dateFilter = null;
         if (afterDate != null && !afterDate.isEmpty()) {
             dateFilter = LocalDate.parse(afterDate);
         }
 
-        var pageResult= service.getPagedEventsForUser(authContext.getCurrentUser(),page,size,sortBy,direction,dateFilter);
+        var pageResult= service.getPagedEventsForUser(authContext.getCurrentUser(),page,size,sortBy,direction,
+                dateFilter,search);
 
         List<EventResponse> eventResponses = pageResult.getContent().stream()
                         .map(EventResponse::fromEntity)
                                 .toList();
 
-        log.info("Get /api/events/paged -> page={} , size={} , sortBy={} , direction={} , afterDate={} " ,
-                page , size , sortBy , direction , afterDate
+        log.info("Get /api/events/paged -> page={} , size={} , sortBy={} , direction={} , afterDate={} , search={}" ,
+                page , size , sortBy , direction , afterDate, search
                 );
 
         PageResponse<EventResponse> responseData = new PageResponse<>();
@@ -65,6 +69,19 @@ public class EventController {
         responseData.setSize(pageResult.getSize());
 
         return  ResponseEntity.ok(new ApiResponse<>("success", "Paged Events retrieved" , responseData));
+    }
+
+    @GetMapping("/upcoming")
+    public ResponseEntity<ApiResponse<List<EventResponse>>> getUpcomingEvents (
+                                                    @RequestParam(defaultValue = "1") long minute) {
+        var currentUser = authContext.getCurrentUser();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime threshold = LocalDateTime.now().plusMinutes(minute);
+        List<Event> events = service.getAllUpcomingReminders(currentUser, now, threshold);
+        List<EventResponse> eventResponses = events.stream()
+                .map(EventResponse::fromEntity)
+                .toList();
+        return ResponseEntity.ok(new ApiResponse<>("success", "Upcoming Events retrieved" , eventResponses));
     }
 
     /**

@@ -42,7 +42,7 @@ public class EventService {
 
 
     public  Page<Event> getPagedEventsForUser(User user,Integer page, Integer size, String sortBy,
-                                      String direction, LocalDate afterDate) {
+                                      String direction, LocalDate afterDate, String search) {
         // defaults
         int p = (page == null || page < 0) ? 0 : page;
         int s = (size == null || size <= 0 || size > 100) ? 10 : size;
@@ -63,8 +63,15 @@ public class EventService {
 
         Pageable pageable = PageRequest.of(p,s,sort);
 
-        if (afterDate != null) {
-                return repo.findAllAfterDate(user,afterDate, pageable);
+        if(afterDate != null && search != null && !search.isEmpty()) {
+            String likeSearch = "%" + search.toLowerCase().trim() + "%";
+            return repo.findByUserAndAfterDateAndSearch(user, afterDate, likeSearch, pageable);
+        } else if (afterDate != null) {
+            return repo.findByUserAndAfterDate(user,afterDate, pageable);
+        } else if (search != null && !search.isEmpty()){
+            String likeSearch = "%" + search.toLowerCase().trim() + "%";
+
+            return repo.findByUserAndSearch(user, likeSearch, pageable);
         }
 
 
@@ -125,6 +132,10 @@ public class EventService {
 
     }
 
+    public List<Event> getAllUpcomingReminders(User user,LocalDateTime now, LocalDateTime threshold) {
+        return repo.findUpcomingReminders(user, now, threshold);
+    }
+
 
     public Event createEvent(User user,EventRequest eventRequest) {
 
@@ -152,6 +163,8 @@ public class EventService {
         event.setDescription(updatedEvent.getDescription());
         event.setEventDate(updatedEvent.getEventDate());
         event.setReminderTime(updatedEvent.getReminderTime());
+        event.setReminderSent(false);
+        event.setReminderSentTime(null);
 
         return repo.save(event);
     }

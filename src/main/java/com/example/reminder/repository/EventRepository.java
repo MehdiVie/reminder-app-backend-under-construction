@@ -16,22 +16,38 @@ import java.util.List;
 @Repository
 public interface EventRepository extends JpaRepository<Event, Long> {
 
-    List<Event> findByUser(User user);
+    List<Event> findByUser(@Param("user") User user);
 
-    Page<Event> findByUser(User user, Pageable pageable);
+    Page<Event> findByUser(@Param("user") User user, Pageable pageable);
 
     Page<Event> findAll(Pageable pageable);
 
     // return all Events after specific date
     @Query("SELECT e FROM Event e WHERE e.eventDate >= :date")
-    Page<Event> findAllAfterDate(LocalDate date , Pageable pageable);
+    Page<Event> findAllAfterDate(@Param("date") LocalDate date , Pageable pageable);
 
+    @Query("SELECT e FROM Event e WHERE e.user=:user AND e.eventDate >= :date " +
+            "AND (LOWER(title) LIKE :search OR " +
+            "LOWER(description) LIKE :search)")
+    Page<Event> findByUserAndAfterDateAndSearch(@Param("user") User user, @Param("date")LocalDate date ,
+                                                @Param("search") String search , Pageable pageable);
     // return all Events after specific date
     @Query("SELECT e FROM Event e WHERE e.user=:user AND e.eventDate >= :date")
-    Page<Event> findAllAfterDate(User user,LocalDate date , Pageable pageable);
+    Page<Event> findByUserAndAfterDate(@Param("user") User user, @Param("date")LocalDate date ,
+                                       Pageable pageable);
+
+    @Query("SELECT e FROM Event e WHERE e.user=:user " +
+            "AND (LOWER(title) LIKE :search OR " +
+            "LOWER(description) LIKE :search)")
+    Page<Event> findByUserAndSearch(@Param("user") User user,@Param("search") String search , Pageable pageable);
 
     @Query("SELECT e FROM Event e WHERE e.reminderSent = false AND e.reminderTime <= :now ")
     List<Event> findPendingReminders(@Param("now") LocalDateTime now);
+
+    @Query("SELECT e FROM Event e WHERE e.user=:user AND e.reminderSent = false AND " +
+                                    "e.reminderTime <= :threshold  AND e.reminderTime >= :now ")
+    List<Event> findUpcomingReminders(@Param("user") User user, @Param("now") LocalDateTime now,
+                                      @Param("threshold")LocalDateTime threshold);
 
     @Modifying(clearAutomatically = true , flushAutomatically = true)
     @Query("UPDATE Event e SET reminderSent=true , reminderSentTime=now() WHERE e.id in :ids")
