@@ -34,26 +34,31 @@ public class AdminController {
     private final EventService eventService;
 
     @GetMapping("/events/paged")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Object>> getPagedEvents (
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "5") Integer size,
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String direction,
-            @RequestParam(required = false) String afterDate) {
+            @RequestParam(required = false) String afterDate,
+            @RequestParam(required = false) String search) {
 
         LocalDate dateFilter = null;
         if (afterDate != null && !afterDate.isEmpty()) {
             dateFilter = LocalDate.parse(afterDate);
         }
 
-        var pageResult= eventService.getPagedEventsForAdmin(page,size,sortBy,direction,dateFilter);
+        var pageResult= eventService.getPagedEventsForAdmin(page,size,sortBy,direction,dateFilter,search);
 
         List<AdminEventResponse> eventResponses = pageResult.getContent().stream()
                 .map(AdminEventResponse::fromEntity)
                 .toList();
 
-        log.info("Get /api/events/paged -> page={} , size={} , sortBy={} , direction={} , afterDate={} " ,
-                page , size , sortBy , direction , afterDate
+
+
+        log.info("Get /api/events/paged -> page={} , size={} , sortBy={} , direction={} , afterDate={} , " +
+                        " search={} " ,
+                page , size , sortBy , direction , afterDate, search
         );
 
         PageResponse<AdminEventResponse> responseData = new PageResponse<>();

@@ -76,7 +76,7 @@ public class EventService {
     }
 
     public  Page<Event> getPagedEventsForAdmin(Integer page, Integer size, String sortBy,
-                                              String direction, LocalDate afterDate) {
+                                              String direction, LocalDate afterDate, String search) {
         // defaults
         int p = (page == null || page < 0) ? 0 : page;
         int s = (size == null || size <= 0 || size > 100) ? 10 : size;
@@ -97,9 +97,17 @@ public class EventService {
 
         Pageable pageable = PageRequest.of(p,s,sort);
 
-        if (afterDate != null) {
-            return repo.findAllAfterDate(afterDate, pageable);
+        if (afterDate != null && search != null && !search.isEmpty()) {
+            String likeSearch = "%" + search.toLowerCase().trim() + "%";
+            return repo.findAllEventsAndAfterDateAndSearch(afterDate, likeSearch ,pageable);
+        } else if (search != null && !search.isEmpty()) {
+            String likeSearch = "%" + search.toLowerCase().trim() + "%";
+            return repo.findAllEventsAndSearch(likeSearch ,pageable);
+        } else if (afterDate != null) {
+
+            return repo.findAllEventsAndAfterDate(afterDate ,pageable);
         }
+
 
         return repo.findAll(pageable);
 
